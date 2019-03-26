@@ -1,0 +1,604 @@
+---
+title: "R Overview"
+author: "Geoff Lucas"
+output: html_notebook
+---
+
+This page is still under some construction.  I will provide some more examples and probably need to fill out the references some more.
+
+R was developed with statisticians, so the language tends to have field-specific advantages over Python in some ways, but falls short of Python when you're doing general purpose scripting, or very heavy computation where GPU-acceleration is required.
+
+The first portion of this document shows the basic syntax and usage for R so this can serve as a basic guide instead of having to Google for tutorials.  I then try to highlight some of the areas where I think R excels and give some ideas where you might be interested in using it over or in addition to Python.
+
+## Basic R Usage
+
+#### Assigning Variables
+Variables just need to be named and assigned for usage.  You can either use '=' equality operator or the '<-' assign/gets operator to assign variables.  It can even be used in reverse.  Variable types can be declared, but are usually inferred.
+
+A multi-object vector is created with the c() function, where c is for collection.  You can slice with the '[]' square brackets.  
+```{r}
+my_first_var = "Hello World"
+my_first_var
+
+my_second_var <- 5
+my_second_var
+
+c(1, 2, 3, 4, 5, 6) -> my_vector
+my_vector
+
+my_vector[2:4]
+```
+
+#### Multiple Commands
+Multiple commands can go on one line, separated by a ';' semicolon
+
+```{r}
+a <- 5; b <- 10; c <- a+b; print(c)
+```
+  
+#### Listing / Removing Variables
+If you're not using a IDE, like RStudio, the ls() function is very handy and lists objects currently in memory.  rm() removes variables if you no longer need them.
+
+```{r}
+ls()
+ls(pat = "var")       # You can match patterns too
+ls.str()              # The str command prints out additional info
+rm(a, b, c)
+ls()
+```
+  
+#### Help function / Comments
+The online help can be easily brought up my using the help function.
+Comments typically start with the hash symbol '#', but in R Markdown denote headings.
+
+```{r}
+help(lm)
+# This is a commment
+```
+  
+#### Basic Data Types
+
+R contains several types of data objects: 
+
+vector  
+factor  
+array  
+matrix  
+data frame  
+ts  
+list  
+  
+#### R is Vector Based
+
+One unique feature of R is that it is vector based.  In fact it has no representation for a scalar variable - just vectors of size 1.
+
+This leads to some unusual and potentially helpful behavior.
+
+First, when you apply an operation to a vector, it applies it, by default, to all members of the vector.  You don't have to loop through each variable and apply the operation, it does this automatically.
+
+```{r}
+c(1, 2, 3 ,4) * 2
+
+avg <- sum(my_vector) / length(my_vector)
+sq_devs <- (my_vector - avg) **2
+sq_devs
+```
+  
+Second, R will automatically recycle vectors.  So if you add two vectors of different sizes together, it will reuse positions of the shorter vector, starting at the beginning.
+```{r}
+my_vector <- c(1, 2, 3, 4, 5, 6)
+small_vector <- c(1, 2, 3)
+my_vector + small_vector
+
+```
+
+Here's an example, however, of where it might result in unexpected behavior.
+
+```{r}
+for (i in 1:3+1){
+  print(i)
+}
+```
+
+Essentially, what R did was create a vector of 1 to 3, then because it recycles vectors, it added 1 to each entry of the original vector, instead of just extending the end by one.  If that is your intent, you need to use parentheses.
+
+```{r}
+for (i in 1:(3+1)){
+  print(i)
+}
+```
+
+One last word of warning when using vectors in R.  Vectors are immutable, just like strings in Java.  While the language will let you do something like this, it's not really a good idea:
+
+```{r}
+startTime <- Sys.time()
+
+example <- 1
+for (i in 1:100000){
+  example <- c(example, i)
+}
+
+endTime <- Sys.time()
+
+endTime - startTime
+```
+
+Internally, for each repetition it creates a brand new array, refills it and adds the number to the end.  It is much more efficient to right/oversize your array initially.
+
+```{r}
+startTime <- Sys.time()
+
+example <- rep(0, length.out = 100000)
+for (i in 1:100000){
+  example[i] = i
+}
+
+endTime <- Sys.time()
+
+endTime - startTime
+```
+
+
+#### Basic Matrices
+
+Matrices are created with the matrix function.  You need to specify either the the nrow= or ncol= options (R will infer if possible the other), otherwise you will get a one-column matrix.  If your data won't fill your specified matrix, R will recycle your data to fill it, though it does warn you as long as the smaller data source is not a multiple or sub-multiple of the number of rows.
+
+Here's one big difference between R and Python.  By default, R is column-major (similar to Fortran) while Python, by default is row-major (similar to C).
+```{r}
+matrix(1:9, ncol = 3)
+matrix(1:4,nrow = 3, ncol = 3)
+```
+
+This can be easily adjusted, however, with the byrow= option 
+```{r}
+my_mat <- matrix(1:9, ncol = 3, byrow = TRUE); my_mat
+dim(my_mat)   #dimensions of the matrix
+my_mat[1:2, 2:3]   # matrix[cols, rows]
+```
+#### Matrix Operations
+
+Here are a couple of examples of using R for matrix algebra
+
+```{r}
+mat1 = matrix(1:6, ncol = 3)
+mat1
+mat2 = matrix(1:6, ncol = 2)
+mat2
+```
+
+Transpose
+
+```{r}
+mat1
+t(mat1)
+```
+
+Element-wise multiplication
+
+```{r}
+mat1 * t(mat2)
+```
+
+Matrix Multiplication
+
+```{r}
+mat1 %*% mat2
+mat2 %*% mat1
+```
+
+Cross-product
+
+```{r}
+crossprod(mat1, mat1)
+```
+
+Diagonals
+
+```{r}
+diag(mat1)
+diag(mat2 %*% mat1)
+```
+
+Matrix Inverse
+
+```{r}
+mat1 = matrix(c(2, 5, 7, 3, 1, 7, 3, 4, 5, 3, 9, 10, 2, 6, 4, 9), ncol = 4)
+mat1
+solve(mat1)
+solve(solve(mat1))
+```
+
+Eigenvalues
+
+```{r}
+eigen(mat1)
+
+```
+
+#### DataFrames
+
+DataFrames in R are in the standard library and pretty much equivalent to Pandas DataFrames.  Somewhat annoyingly, taking slices from dataframes is specified in a different order than matrices.  If you only specify one dimension, it defaults to assuming you mean to specify columns.
+
+```{r}
+cars <- mtcars
+mtcars[1:4, 1:3]      # dataframe[rows, cols]
+
+# You can access columns by specifying the dataframe $ variable.
+cars$hp[1:5]
+```
+
+
+#### Basic Sequences
+
+There are two commonly used methods to generate linear sequences, similar to range() in python, but inclusive of the final number.
+
+```{r}
+x <- 1:9                # Can only be used for intervals of 1
+x
+y <- seq(1, 9, 0.5)
+y
+```
+
+## Control Statements
+
+R of course as all the typical control statements.  
+
+#### If statement
+
+```{r}
+if (my_first_var == "Hello World"){
+  print("YAAAAAAAAY!!!!!")
+}
+
+```
+
+#### For Loop
+
+```{r}
+for (i in 1:length(my_vector)){
+  print(i)
+}
+```
+
+#### While Loop
+
+```{r}
+x = 0; y = 5
+while (x < y){
+  print(x)
+  x = x + 1
+}
+```
+
+#### Writing Functions
+
+```{r}
+std_dev <- function(values){
+  avg <- mean(values)
+  sq_devs <- (values - avg) **2
+  return(sum(sq_devs) / (length(sq_devs) - 1))
+}
+
+std_dev(my_vector)
+```
+
+## Basic distributions and graphical analysis
+
+#### Random Sequences
+
+This is one of the areas R really shines.  Having been designed by and for statisticians, the Base package of R has 20 distributions built in.  Additionally distributions can be downloaded from packages.
+
+For instance, lets generate 100 Random Nomral Variables.
+
+```{r}
+dist <- rnorm(100, mean = 2, sd = 1)
+plot(dist)
+hist(dist)
+
+# QQ Plot
+qqnorm(dist, col = "red")
+qqline(dist, col = "blue", lwd = 2)
+```
+
+Or maybe you want to random vectors generated according to a multinomial distribution.  
+
+Here, the definitions you do have to be careful of:  
+n =    number of vectors to draw (columns)  
+size = number of objects to put in to buckets (# balls)  
+prob = sets the number of and probability for each bucket  
+
+```{r}
+mult <- rmultinom(n = 5, size = 1000, prob = c(.1, .05, .2, .4, .25))
+mult
+```
+
+Perhaps you're interested in getting the probability density of of the normal distribution at a certain point.  
+
+## More on Using Distributions
+
+R uses a standardized referencing system for accessing probabilities associated with distributions:  
+r = random number generation (see above)    
+q = quantiles  
+d = density  
+p = probability  
+
+#### Quantiles
+
+First, we'll quickly show some quantiles
+
+```{r}
+# Quantiles - The value that divides a distribution
+# So by specifying 0.95, this will return the value below which 95% of observations in this distribution fall
+qnorm(0.95, mean = 0, sd = 1, lower.tail = TRUE)
+qnorm(0.5, mean = 2.4, sd = 1, lower.tail = TRUE)
+qnorm(0.2, mean = 0, sd = 1, lower.tail = TRUE)
+```
+
+#### Probabilities
+
+Now, how about some probabilities.  
+
+The first value in all these functions can be a single number, or a sequence of numbers
+```{r}
+# Probability
+pnorm(2.0, mean = 0, sd = 1, lower.tail = TRUE)
+pnorm(-1.67, mean = 0, sd = 2, lower.tail = TRUE)
+
+# Plot of Normal Distribution
+# Here the function is calculating the probability for the sequence from -4 to 4 in increments of .1.  Looping is automated
+nom <- pnorm(seq(-4, 4, .1), mean = 0, sd = 1)
+plot(seq(-4, 4, .1), nom, xlab = "X Value", ylab = "Cumulative Probability")
+
+# Binomial Probabilities
+bin <- pbinom(seq(0, 100, 2), size = 100, prob = .33)
+plot(seq(0, 100, 2), bin, col = "blue", pch = 16, cex = 2, xlab = "Number of Successes", ylab = "Cumulative Probability")
+lines(seq(0, 100, 2), bin, col = "red", lwd = 2)
+```
+
+#### Density Functions
+```{r}
+# Density
+dnorm(2.0, mean = 0, sd = 1)
+dnorm(-1.67, mean = 0, sd = 2)
+
+# Plot of Normal Distribution
+nom <- dnorm(seq(-4, 4, .1), mean = 0, sd = 1)
+plot(seq(-4, 4, .1), nom, xlab = "X Value", ylab = "Probability Density", main = "Normal Distribution")
+
+# Binomial Probabilities
+bin <- dbinom(seq(0, 100, 2), size = 100, prob = .8)
+plot(seq(0, 100, 2), bin, col = "blue", pch = 1, cex = 1, xlab = "Number of Successes", ylab = "Probability Density", main = "Binominal Distribution")
+lines(seq(0, 100, 2), bin, col = "red", lwd = 2)
+```
+
+#### Fun Data Operations
+
+Piping operations.  This is very useful if you need to chain multiple function calls together, passing the results of one to the next.  It lets you accomplish this in a more readable format by using the '%>%' pipe operator or chain operator.  You can pipe together pretty much as many operations as you need.  This is great for basic descriptive statistics and data exploration.
+
+Important Note: The select function in dplyr conflicts with the function in MASS, so if you have both loaded, you have to specify using it by dplyr::select().
+
+```{r}
+# Dependencies
+library(dplyr)
+library(datasets)
+library(magrittr)
+data(mtcars)
+
+mtcars %>% 
+  group_by(cyl, gear) %>%
+  summarize(MilesGallon = mean(mpg), Horsepower = mean(hp)) %>%
+  arrange(desc(Horsepower)) %>%
+  dplyr::select(cyl, gear, MilesGallon, Horsepower) %>%
+  print %$%
+  plot(Horsepower, MilesGallon)
+```
+
+## Basic Statistics
+
+The base R package includes most of the statistics functions you will need.
+
+#### Basic Regression
+
+Basic linear or multi-variable regression in R can be accomplished with the lm() function, or linear model.
+
+```{r}
+data(mtcars)
+my_model <- lm(hp ~ disp, data = mtcars)
+summary(my_model)
+
+# The I() function allows you to create interactions / squared terms on the fly
+my_model2 <- lm(hp ~ mpg + I(mpg^2), data = mtcars)
+plot(my_model2)
+
+summary(my_model2)
+
+# Or for fun, let's try it from scratch with our matrix operations
+X <- cbind(rep(1, length(mtcars$mpg)), mtcars$mpg, mtcars$mpg **2)
+X[1:5, 1:3]
+y <- mtcars$hp
+y[1:5]
+results <- solve(t(X) %*% X) %*% (t(X) %*% y)
+
+results
+
+# Using the . in the formula definition means to utilize all variables, no interactions
+my_model3 <- lm(hp ~ ., data = mtcars)
+summary(my_model3)
+```
+
+R is also very easy to use for Kernel Density Estimates.
+
+```{r}
+density(dist)
+plot(density(dist))
+```
+
+
+## Plotting using ggplot2
+
+ggplot2 is another one of the hidden gems in the R library.  While the basic plotting functions we've been using above work pretty well, if you really want to do some crazy graphics, ggplot2 is a great place to start.  You will probably want to install the entire Tidyverse, a package for working with R, that includes this.  Also, check out https://github.com/rstudio/cheatsheets/blob/master/data-visualization-2.1.pdf for a great cheatsheet on how use ggplot2.  
+
+At it's heart, ggplot2 works on a very basic principle - it builds graphs piece by piece, stringing everything together with '+' operators.  In essence, the '+' operator here works in a similar fashion to the '%>%' pipe operator above.
+
+```{r}
+library(ggplot2)
+
+my_plot <- ggplot(data = mtcars, aes(disp, mpg)) +    # Defining the data to use
+  geom_point(colour = "dark green", size = 4) +                                         # Define how to display it
+  geom_smooth(method = 'loess', se = TRUE) +
+  labs(title = "MPG versus Displacement") +                     # Add extra stuff
+  labs(subtitle = "Sorry it's in Imperial") +
+  labs(y = "Miles per Gallon", x = "Engine Displacement", caption = "This is reallllllly pretty!!!")
+  
+
+my_plot
+
+```
+
+```{r}
+library(ggplot2)
+
+my_plot <- ggplot(data = mtcars, aes(disp, mpg, color = mpg)) +    # Defining the data to use
+  geom_point() +                                         # Define how to display it
+  geom_smooth(method = 'loess', se = TRUE) +
+  labs(title = "MPG versus Displacement") +                     # Add extra stuff
+  labs(subtitle = "Sorry it's in Imperial") +
+  labs(y = "Miles per Gallon", x = "Engine Displacement", caption = "This is reallllllly pretty!!!") +
+  scale_color_gradient(low="red", high="dark green")
+  
+
+my_plot
+```
+
+```{r}
+library(ggplot2)
+
+my_plot <- ggplot(data = mtcars, aes(disp, mpg, color = mpg)) +    # Defining the data to use
+  geom_point() +                                                  # Define how to display it
+  geom_smooth(method = 'loess', se = TRUE) +
+  labs(title = "MPG versus Displacement") +                     # Add extra stuff
+  labs(subtitle = "Sorry it's in Imperial") +
+  labs(y = "Miles per Gallon", x = "Engine Displacement", caption = "This is reallllllly pretty!!!") +
+  scale_color_gradientn(colours = rainbow(5))
+  
+
+my_plot
+```
+
+
+## Some fun examples of stuff you can do in R
+
+These are courtesy of http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html#Seasonal%20Plot
+
+```{r}
+library(ggplot2)
+data(mpg, package="ggplot2")
+mpg <- read.csv("http://goo.gl/uEeRGu")
+
+mpg_select <- mpg[mpg$manufacturer %in% c("audi", "ford", "honda", "hyundai"), ]
+
+# Scatterplot
+theme_set(theme_bw())  # pre-set the bw theme.
+g <- ggplot(mpg_select, aes(displ, cty)) + 
+  labs(subtitle="mpg: Displacement vs City Mileage",
+       title="Bubble chart")
+
+g + geom_jitter(aes(col=manufacturer, size=hwy)) + 
+  geom_smooth(aes(col=manufacturer), method="lm", se=F)
+```
+
+```{r}
+library(ggplot2)
+theme_set(theme_bw())  
+
+# Data Prep
+data("mtcars")  # load data
+mtcars$`car name` <- rownames(mtcars)  # create new column for car names
+mtcars$mpg_z <- round((mtcars$mpg - mean(mtcars$mpg))/sd(mtcars$mpg), 2)  # compute normalized mpg
+mtcars$mpg_type <- ifelse(mtcars$mpg_z < 0, "below", "above")  # above / below avg flag
+mtcars <- mtcars[order(mtcars$mpg_z), ]  # sort
+mtcars$`car name` <- factor(mtcars$`car name`, levels = mtcars$`car name`)  # convert to factor to retain sorted order in plot.
+
+# Diverging Barcharts
+ggplot(mtcars, aes(x=`car name`, y=mpg_z, label=mpg_z)) + 
+  geom_bar(stat='identity', aes(fill=mpg_type), width=.5)  +
+  scale_fill_manual(name="Mileage", 
+                    labels = c("Above Average", "Below Average"), 
+                    values = c("above"="#00ba38", "below"="#f8766d")) + 
+  labs(subtitle="Normalised mileage from 'mtcars'", 
+       title= "Diverging Bars") + 
+  coord_flip()
+```
+
+```{r}
+library(ggplot2)
+theme_set(theme_classic())
+
+# Histogram on a Continuous (Numeric) Variable
+g <- ggplot(mpg, aes(displ)) + scale_fill_brewer(palette = "Spectral")
+
+g + geom_histogram(aes(fill=class), 
+                   binwidth = .1, 
+                   col="black", 
+                   size=.1) +  # change binwidth
+  labs(title="Histogram with Auto Binning", 
+       subtitle="Engine Displacement across Vehicle Classes")  
+
+g + geom_histogram(aes(fill=class), 
+                   bins=5, 
+                   col="black", 
+                   size=.1) +   # change number of bins
+  labs(title="Histogram with Fixed Bins", 
+       subtitle="Engine Displacement across Vehicle Classes") 
+```
+
+```{r}
+library(ggplot2)
+theme_set(theme_classic())
+
+# Plot
+g <- ggplot(mpg, aes(cty))
+g + geom_density(aes(fill=factor(cyl)), alpha=0.8) + 
+    labs(title="Density plot", 
+         subtitle="City Mileage Grouped by Number of cylinders",
+         caption="Source: mpg",
+         x="City Mileage",
+         fill="# Cylinders")
+```
+
+```{r}
+library(ggplot2)
+theme_set(theme_bw())
+
+# plot
+g <- ggplot(mpg, aes(class, cty, colour = class))
+g + geom_violin() + 
+  labs(title="Violin plot", 
+       subtitle="City Mileage vs Class of vehicle",
+       caption="Source: mpg",
+       x="Class of Vehicle",
+       y="City Mileage")
+```
+
+```{r}
+# install.packages("ggdendro")
+library(ggplot2)
+library(ggdendro)
+theme_set(theme_bw())
+
+hc <- hclust(dist(USArrests), "ave")  # hierarchical clustering
+
+# plot
+ggdendrogram(hc, rotate = TRUE, size = 2)
+```
+
+REFERENCES - IN PROGRESS
+
+1) https://github.com/rstudio/cheatsheets/blob/master/data-visualization-2.1.pdf
+2) http://r-statistics.co/Top50-Ggplot2-Visualizations-MasterList-R-Code.html#Seasonal%20Plot
+3) https://www.rstudio.com/
+4) https://cran.r-project.org/
+5) Advanced R, Hadley Wickham, 2014
+6) A Modern Approach to Regression with R, Simon Sheather, 2009
+7) https://cran.r-project.org/doc/contrib/Paradis-rdebuts_en.pdf
+8) http://www.r-tutor.com/r-introduction
